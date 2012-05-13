@@ -1,0 +1,6 @@
+glob:Bin
+glob:Obj
+glob:*.o
+glob:bin
+glob:obj
+glob:*.swp
