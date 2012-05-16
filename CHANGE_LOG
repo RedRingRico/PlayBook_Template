@@ -1,0 +1,10 @@
+|| Ver. 0.0.1 ||
+
+- Changed "$(TARGET): $(OBJS) debugtoken $(TARGETDIR)" to
+	"$(TARGET): $(OBJS) $(TARGETDIR) debugtoken" to create the target directory
+	before the Debug Token
+- Connect.jar PID file is stored in a variable, then deleted in case the kill
+	command fails
+- Killing the Connect.jar PID is working by getting the current process ID + 2
+	(due to	the running process being a new shell [guess])
+- Removed token found output [seems like too much information]

@@ -30,10 +30,14 @@ ifeq ($(strip $(KEYSTORE_PASSWORD)),)
 $(error "You need to define your Keystore password.  Use: read -esp 'Password: ' KEYSTORE_PASSWORD  Then enter your password and type: export KEYSTORE_PASSWORD")
 endif
 
+export
+unexport AVal
+
 TARGET = Template
 TARGETDIR	= ../Bin
 OBJSDIR		= ../Obj/$(BUILD_PLATFORM)/$(BUILD)
 SOURCEDIR	= Source
+CONNECTIONPID = `cat connpid`
 
 # Define the C and C++ compilers
 CC = qcc
@@ -85,20 +89,26 @@ endif
 release: TARGET := $(TARGET)
 release: BUILD := Release
 release: CONFIGURATION := $(addsuffix Release, $(CONFIGURATION))
+ifdef GDB
+release: $(TARGET) gdb
+else
 release: $(TARGET)
+endif
 
 # Set up the compiler's flags and alternate libraries for profiling
 profile: TARGET := $(TARGET)P
 profile: BUILD := Profile
 profile: CONFIGURATION := $(addsuffix Profile, $(CONFIGURATION))
+ifdef GDB
+profile: $(TARGET) gdb
+else
 profile: $(TARGET)
+endif
 
 debugtoken:
 	@# If no debug token is found, create one
 	@if [ ! -e $(TARGETDIR)/$(TARGET)_tok.bar ]; then\
 		blackberry-debugtokenrequest -storepass $$KEYSTORE_PASSWORD -devicepin $(PLAYBOOK_PIN) $(TARGETDIR)/$(TARGET)_tok.bar;\
-	else\
-		echo "Found $(TARGETDIR)/$(TARGET)_tok.bar";\
 	fi
 
 # Deploy will only install the debug token and application to the PlayBook
@@ -112,10 +122,8 @@ deploy: debugtoken
 launch_starter: deploy
 	@# If the program is running, don't attempt to launch, otherwise launch the program
 	@# If the program isn't running, launch it and save the PID
-	@export Launched=$$(echo $$(blackberry-deploy -isAppRunning -package $(TARGETDIR)/$(TARGET).bar $(PLAYBOOK_TARGET) -password $(PLAYBOOK_PASSWORD) | grep 'result::' | sed 's/result:://'))
-	@# Open the connection to launch on
-	@blackberry-connect $(PLAYBOOK_TARGET) -password $(PLAYBOOK_PASSWORD) -sshPublicKey $(SSHKEY) & echo $$! > connpid
-	@if [ $$Launched = true ]; then \
+	@export Launched=$$(echo $$(blackberry-deploy -isAppRunning -package $(TARGETDIR)/$(TARGET).bar $(PLAYBOOK_TARGET) -password $(PLAYBOOK_PASSWORD) | grep 'result::' | sed 's/result:://'));\
+	if [ $$Launched = true ]; then \
 		echo Already running.  Attach your debugger to process $$(cat pid); \
 	else \
 		printf "\nLaunching $(TARGET)...\n\n";\
@@ -123,9 +131,21 @@ launch_starter: deploy
 		blackberry-deploy -debugNative -launchApp -device $(PLAYBOOK_TARGET) -password $(PLAYBOOK_PASSWORD) $(TARGETDIR)/$(TARGET).bar | grep result:: | sed 's/result:://' > pid;\
 	fi
 
-launch: launch_starter
-	@if [ $$Launched = false ]; then \
-		printf "\nProcess $$(cat pid) started\n\n";\
+connect:
+	@# Open the connection to launch on if the connpid file isn't found
+	@# (which would suggest it is already running)
+	@if [ -e connpid ]; then\
+		echo Connect running;\
+	else\
+		echo Starting connection...;\
+		(java -Xmx512M -jar $(QNX_HOST)/usr/lib/Connect.jar $(PLAYBOOK_TARGET) -password $(PLAYBOOK_PASSWORD) -sshPublicKey $(SSHKEY) > /dev/null &);\
+		export CONN=$$$$;export CONN=`expr $$CONN + 2`;echo $$CONN > connpid;\
+	fi
+
+launch: launch_starter connect
+	@export Launched=$$(echo $$(blackberry-deploy -isAppRunning -package $(TARGETDIR)/$(TARGET).bar $(PLAYBOOK_TARGET) -password $(PLAYBOOK_PASSWORD) | grep 'result::' | sed 's/result:://'));\
+	if [ $$Launched ]; then \
+		printf "Process $$(cat pid) started\n\n";\
 	fi
 
 # GDB invokes the install and launch commands to ensure the latest build is
@@ -138,9 +158,14 @@ gdb: launch
 	@cat pid >> gdbrun
 	@ntoarm-gdb -command=gdbrun
 	@# Finished with the PID
-	@rm pid
-	@# Finished with the connection
-	@kill $$(cat connpid)
+	@rm -f pid
+	@export StoredConn=$(CONNECTIONPID);\
+	export RunningConn=`ps o pid | grep $$StoredConn`;\
+	if [ "$$RunningConn" ]; then\
+		printf "\nKilling PlayBook [$(PLAYBOOK_TARGET)] Connection...\n";\
+		kill `cat connpid`;\
+	fi
+	@rm connpid
 
 ifneq ($(OBJSDIR), $(notdir $(CURDIR)))
 
@@ -150,14 +175,13 @@ OBJS		= $(CPPFILES:.cpp=.o)
 $(TARGETDIR):
 	-mkdir -p $(TARGETDIR)
 
-$(TARGET): $(OBJS) debugtoken $(TARGETDIR)
+$(TARGET): $(OBJS) $(TARGETDIR) debugtoken
 	cd $(OBJSDIR) && $(CXX) $(CFLAGS) -o ../../$(TARGETDIR)/$(TARGET) $(OBJS)
 	@# Make the BAR file
 	@printf "\n\n"
 	blackberry-nativepackager -configuration $(CONFIGURATION) -package $(TARGETDIR)/$(TARGET).bar -list -target BAR-DEBUG -devMode -debugToken $(TARGETDIR)/$(TARGET)_tok.bar BAR.xml -e $(TARGETDIR)/$(TARGET) $(TARGET) -e ../Media/Icons/BBPlayBookIcon.png icon.png
 
 %.o: $(SOURCEDIR)/%.cpp
-	@echo $(CONFIGURATION)
 	@mkdir -p $(OBJSDIR)
 	$(CXX) $(CFLAGS) -c -IHeaders $< -o $(OBJSDIR)/$@
 
