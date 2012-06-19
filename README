@@ -1,0 +1,63 @@
+###############################################################################
+#                                       BlackBerry PlayBook Template [README] #
+###############################################################################
+
+############
+# Contents #
+############
+[1] - Overview
+[2] - Usage
+
+###############################################################################
+#                                                              [1] - Overview #
+###############################################################################
+This template project is intended for BlackBerry PlayBook native developers who
+prefer to use the command line over an IDE.  In creating this template, it is
+the author's hope to alleviate headaches that occur from creating and deploying
+projects on the PlayBook platform (and possibly BB10).
+
+###############################################################################
+#                                                                 [2] - Usage #
+###############################################################################
+By default, it is assumed all source files will be in:
+<Project Directory>/Source/Source
+and headers in:
+<Project Directory>/Source/Headers
+Binaries will be placed in:
+<Project Directory>/Bin
+Object files will be placed in:
+<Project Directory>/Obj
+As there is an icon required for PlayBook programs, it is located in:
+<Project Directory>/Media/Icons
+
+As media files are program specific, the only media file shall be the icon file
+which is the GNOME terminal icon.
+
+To make your project, place your source and header files in their respective
+directories, then chage directory into:
+<Project Directory>/Source
+and run:
+$ make
+
+If you wish to launch the project use:
+$ make launch
+
+To debug your project using ntoarm-gdb, run:
+$ make GDB=1
+which will automatically launch the debugger and attach to the running process.
+If you have already launched your program, you may either attach via running
+the aforementioned command or using:
+$ ntoarm-gdb -command=gdbrun
+Assuming you are still in the <Project Directory>/Source directory.
+
+This project template is only for creating runnable executables, it is not for
+static or dynamic libraries.  With minor modification, this should not be a
+challenging task for a programmer.  However, there shall be other template
+projects created for such purposes.
+
+To check out the latest revision of this template, use:
+hg pull https://hg.interactivelaboratories.com/index.cgi/playbook_template
+With the following credentials:
+Username: guest
+Password:
+

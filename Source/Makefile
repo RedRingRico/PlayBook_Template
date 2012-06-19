@@ -1,5 +1,6 @@
 ## Makefile for BlackBerry PlayBook Template Project
 ## Date: 03|04|2012
+
 # Check for environment variables that should be set
 ifeq ($(strip $(QNX_TARGET)),)
 $(error Please run: $$ source /path/to/bbndk/bbndk-env.sh to set up your environment variables )
@@ -30,9 +31,7 @@ ifeq ($(strip $(KEYSTORE_PASSWORD)),)
 $(error "You need to define your Keystore password.  Use: read -esp 'Password: ' KEYSTORE_PASSWORD  Then enter your password and type: export KEYSTORE_PASSWORD")
 endif
 
-export
-unexport AVal
-
+## Replace Template with your executable's name
 TARGET = Template
 TARGETDIR	= ../Bin
 OBJSDIR		= ../Obj/$(BUILD_PLATFORM)/$(BUILD)
@@ -162,7 +161,7 @@ gdb: launch
 	@export StoredConn=$(CONNECTIONPID);\
 	export RunningConn=`ps o pid | grep $$StoredConn`;\
 	if [ "$$RunningConn" ]; then\
-		printf "\nKilling PlayBook [$(PLAYBOOK_TARGET)] Connection...\n";\
+		printf "\nClosing PlayBook [$(PLAYBOOK_TARGET)] Connection...\n";\
 		kill `cat connpid`;\
 	fi
 	@rm connpid

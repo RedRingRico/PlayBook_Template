@@ -1,3 +1,13 @@
+|| Ver. 0.0.3 ||
+- Removed export lines near 34 and 35 of Makefile
+- Added LICENSE [GPLv2]
+- Added README
+
+|| Ver. 0.0.2 ||
+- Added a README file
+- Changed "Killing PlayBook [IP Address] Connection..." to
+	"Closing PlayBook [IP Address] Connection..." making the intent more clear
+
 || Ver. 0.0.1 ||
 
 - Changed "$(TARGET): $(OBJS) debugtoken $(TARGETDIR)" to
