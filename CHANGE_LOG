@@ -1,3 +1,7 @@
+|| Ver. 0.0.4 ||
+- Changed project name assignment to ':=' instead of '=' to fix making debug
+  and profile builds
+
 || Ver. 0.0.3 ||
 - Removed export lines near 34 and 35 of Makefile
 - Added LICENSE [GPLv2]
@@ -18,3 +22,4 @@
 - Killing the Connect.jar PID is working by getting the current process ID + 2
 	(due to	the running process being a new shell [guess])
 - Removed token found output [seems like too much information]
+

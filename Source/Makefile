@@ -32,7 +32,7 @@ $(error "You need to define your Keystore password.  Use: read -esp 'Password: '
 endif
 
 ## Replace Template with your executable's name
-TARGET = Template
+TARGET := Template
 TARGETDIR	= ../Bin
 OBJSDIR		= ../Obj/$(BUILD_PLATFORM)/$(BUILD)
 SOURCEDIR	= Source
