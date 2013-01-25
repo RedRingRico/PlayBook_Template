@@ -37,27 +37,28 @@ To make your project, place your source and header files in their respective
 directories, then chage directory into:
 <Project Directory>/Source
 and run:
-$ make
+$ make <debug|release|profile>
+
+To just deploy your project to your PlayBook:
+$ make <debug|release|profile> deploy
 
 If you wish to launch the project use:
-$ make launch
+$ make <debug|release|profile> launch
 
 To debug your project using ntoarm-gdb, run:
-$ make GDB=1
+$ make <debug|release|profile> gdb
 which will automatically launch the debugger and attach to the running process.
+
 If you have already launched your program, you may either attach via running
 the aforementioned command or using:
 $ ntoarm-gdb -command=gdbrun
 Assuming you are still in the <Project Directory>/Source directory.
 
 This project template is only for creating runnable executables, it is not for
-static or dynamic libraries.  With minor modification, this should not be a
-challenging task for a programmer.  However, there shall be other template
-projects created for such purposes.
+static or dynamic libraries.  With minor modification, this should be fairly
+trivial to achieve.  There shall be other template projects created for such
+purposes in the near-future and available via this GitHub account.
 
-To check out the latest revision of this template, use:
-hg pull https://hg.interactivelaboratories.com/index.cgi/playbook_template
-With the following credentials:
-Username: guest
-Password:
+To get the latest revision of this template, use:
+git pull https://github.com/El-Rico/PlayBook_Template.git
 
