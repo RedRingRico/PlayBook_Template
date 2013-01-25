@@ -1,9 +1,0 @@
-glob:Bin
-glob:Obj
-glob:*.o
-glob:bin
-glob:obj
-glob:*.swp
-glob:Source/gdbrun
-glob:Source/connpid
-glob:Source/pid

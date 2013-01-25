@@ -1,0 +1,16 @@
+# Directories #
+Bin
+bin
+Obj
+obj
+
+# Temporary vim #
+*.vim
+*.swp
+*.swo
+*.swn
+
+# Any left-over temporary files #
+Source/gdbrun
+Source/connpid
+Source/pid

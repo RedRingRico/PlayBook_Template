@@ -31,10 +31,15 @@ ifeq ($(strip $(KEYSTORE_PASSWORD)),)
 $(error "You need to define your Keystore password.  Use: read -esp 'Password: ' KEYSTORE_PASSWORD  Then enter your password and type: export KEYSTORE_PASSWORD")
 endif
 
+ifndef TOPDIR
+export TOPDIR		= $(shell cd ../ && pwd)
+export TARGETDIR	= $(TOPDIR)/Bin
+export OBJSDIR		= $(TOPDIR)/Obj/$(BUILD_PLATFORM)/$(BUILD)
+endif
+
 ## Replace Template with your executable's name
 TARGET := Template
-TARGETDIR	= ../Bin
-OBJSDIR		= ../Obj/$(BUILD_PLATFORM)/$(BUILD)
+OUTFILE = $(TARGETDIR)/$(TARGET)
 SOURCEDIR	= Source
 CONNECTIONPID = `cat connpid`
 
@@ -55,13 +60,13 @@ endif
 
 ifdef PLATFORM
 ifeq ($(PLATFORM),x86)
-CFLAGS = -Vgcc_ntox86
+CPPFLAGS = -Vgcc_ntox86
 INCPATH =
 BUILD_PLATFORM = PlayBook_x86
 CONFIGURATION = Simulator-
 TARGET := $(TARGET)Simulator
 else
-CFLAGS = -Vgcc_ntoarmv7le
+CPPFLAGS = -Vgcc_ntoarmv7le
 INCPATH = -I$(QNX_TARGET)../target-override/usr/include -I$(QNX_TARGET)/usr/include
 BUILD_PLATFORM = PlayBook_ARM
 CONFIGURATION = Device-
@@ -74,35 +79,26 @@ endif
 #.SILENT:
 # Set up the compiler's flags and alternate libraries for debugging
 debug: TARGET := $(TARGET)D
-debug: CFLAGS += -g -ggdb -Wall
+debug: BUILD_TYPE := debug
+debug: CPPFLAGS += -g -ggdb -Wall
 debug: LFLAGS = -Wl,--no-keep-memory,-z,relro,-z,now
 debug: BUILD := Debug
 debug: CONFIGURATION := $(addsuffix Debug, $(CONFIGURATION))
-ifdef GDB
-debug: $(TARGET) gdb
-else
 debug: $(TARGET)
-endif
 
 # Set up the compiler's flags and libraries for release
 release: TARGET := $(TARGET)
+release: BUILD_TYPE := release
 release: BUILD := Release
 release: CONFIGURATION := $(addsuffix Release, $(CONFIGURATION))
-ifdef GDB
-release: $(TARGET) gdb
-else
 release: $(TARGET)
-endif
 
 # Set up the compiler's flags and alternate libraries for profiling
 profile: TARGET := $(TARGET)P
+profile: BUILD_TYPE := profile
 profile: BUILD := Profile
 profile: CONFIGURATION := $(addsuffix Profile, $(CONFIGURATION))
-ifdef GDB
-profile: $(TARGET) gdb
-else
 profile: $(TARGET)
-endif
 
 debugtoken:
 	@# If no debug token is found, create one
@@ -147,7 +143,7 @@ launch: launch_starter connect
 		printf "Process $$(cat pid) started\n\n";\
 	fi
 
-# GDB invokes the install and launch commands to ensure the latest build is
+# gdb invokes the install and launch commands to ensure the latest build is
 # being debugged
 gdb: launch
 	@echo target qnx $(PLAYBOOK_TARGET):8000 > gdbrun
@@ -166,23 +162,76 @@ gdb: launch
 	fi
 	@rm connpid
 
-ifneq ($(OBJSDIR), $(notdir $(CURDIR)))
+ifneq ($(OBJSDIR),$(CURDIR))
 
 CPPFILES	:= $(foreach dir,$(SOURCEDIR),$(notdir $(wildcard $(dir)/*.cpp)))
-OBJS		= $(CPPFILES:.cpp=.o)
+export OBJS		= $(CPPFILES:.cpp=.o)
+export VPATH	:= $(foreach dir, $(SOURCEDIR),$(CURDIR)/$(dir))
 
-$(TARGETDIR):
-	-mkdir -p $(TARGETDIR)
-
-$(TARGET): $(OBJS) $(TARGETDIR) debugtoken
-	cd $(OBJSDIR) && $(CXX) $(CFLAGS) -o ../../$(TARGETDIR)/$(TARGET) $(OBJS)
-	@# Make the BAR file
-	@printf "\n\n"
-	blackberry-nativepackager -configuration $(CONFIGURATION) -package $(TARGETDIR)/$(TARGET).bar -list -target BAR-DEBUG -devMode -debugToken $(TARGETDIR)/$(TARGET)_tok.bar BAR.xml -e $(TARGETDIR)/$(TARGET) $(TARGET) -e ../Media/Icons/BBPlayBookIcon.png icon.png
-
-%.o: $(SOURCEDIR)/%.cpp
+OBJSDIR:
 	@mkdir -p $(OBJSDIR)
-	$(CXX) $(CFLAGS) -c -IHeaders $< -o $(OBJSDIR)/$@
+
+TARGETDIR:
+	mkdir -p $(TARGETDIR)
+
+$(TARGET): $(TARGETDIR) OBJSDIR debugtoken
+	@/usr/bin/time -f "%E" -o $(OBJSDIR)/compiletime $(MAKE) \
+	--no-print-directory -C $(OBJSDIR) -f $(TOPDIR)/Source/Makefile \
+	$(BUILD_TYPE)
+	@printf "\n%s" "----------------------------------------------------------"
+	@printf "%s\n" "---------------------"
+	@printf "Compile time: "
+	@cat $(OBJSDIR)/compiletime
+	@printf "%s" "------------------------------------------------------------"
+	@printf "%s\n" "-------------------"
+
+else
+
+$(TARGET): $(OBJS)
+	@printf "\n\n%s" "------------------------ MESSAGES FROM THE COMPILER ----"
+	@printf "%s\n" "-----------------------"
+	@cat *.cmsgs
+	@printf "%s" "------------------------------------------------------------"
+	@printf "%s\n\n" "-------------------"
+	@printf "Creating $(OUTFILE) ... "
+	@$(CXX) $(CPPFLAGS) -o $(OUTFILE) $(OBJS)
+	@printf "[OK]\n"
+	@printf "Packaging into $(OUTFILE).bar ... "
+	@blackberry-nativepackager -configuration $(CONFIGURATION) \
+	-package $(OUTFILE).bar -list -target BAR-DEBUG -devMode \
+	-debugToken $(TARGETDIR)/$(TARGET)_tok.bar $(TOPDIR)/Source/BAR.xml \
+	-e $(TARGETDIR)/$(TARGET) $(TARGET) \
+	-e $(TOPDIR)/Media/Icons/BBPlayBookIcon.png icon.png > barfiles
+	@printf "[OK]\n"
+	@printf "\n%s" "------------------------ FILES IN $(TARGET).bar ----------"
+	@printf "%s\n" "----------------------"
+	@cat barfiles
+	@printf "%s" "----------------------------------------------------------"
+	@printf "%s\n" "---------------------"
+
+%.o: %.cpp
+	@printf "Compiling: $< ..."
+	@$(CXX) -Wp,-MMD -Wp,MP -Wp,-MF,$*.d -c $(CPPFLAGS) -IHeaders $< -o $@ 2> *.cmsgs;\
+	RETVAL=$$?;\
+	if [[ $$RETVAL == 0 ]]; then\
+		printf "[OK]\n";\
+	else\
+		printf "\n\n%s" "------------------------------------ ERROR --------";\
+		printf "%s\n" "----------------------------";\
+		cat *.cmsgs;\
+		printf "%s" "-------------------------------------------------------";\
+		printf "%s\n\n" "------------------------";\
+		exit 1;\
+	fi
+
+-include *.d
 
 endif
-
+.PHONY: clean
+clean:
+	@printf "Removing files from: $(TARGETDIR) ... "
+	@cd $(TARGETDIR) && rm -rf ./*
+	@printf "[OK]\n"
+	@printf "Removing files from: $(OBJSDIR) ... "
+	@cd $(TARGETDIR) && rm -rf ./*
+	@printf "[OK]\n"
