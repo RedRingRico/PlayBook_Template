@@ -3,32 +3,41 @@
 
 # Check for environment variables that should be set
 ifeq ($(strip $(QNX_TARGET)),)
-$(error Please run: $$ source /path/to/bbndk/bbndk-env.sh to set up your environment variables )
+$(error Please run: $$ source /path/to/bbndk/bbndk-env.sh to set up your \
+environment variables )
 endif
 
 ifeq ($(strip $(QNX_HOST)),)
-$(error Please run: $$ source /path/to/bbndk/bbndk-env.sh to set up your environment variables )
+$(error Please run: $$ source /path/to/bbndk/bbndk-env.sh to set up your \
+environment variables )
 endif
 
 ifeq ($(strip $(QNX_CONFIGURATION)),)
-$(error Please run: $$ source /path/to/bbndk/bbndk-env.sh to set up your environment variables )
+$(error Please run: $$ source /path/to/bbndk/bbndk-env.sh to set up your \
+environment variables )
 endif
 
 # These need to be set up by the user manually
 ifeq ($(strip $(PLAYBOOK_TARGET)),)
-$(error "You need to define your PlayBook's IP Address.  Use: export PLAYBOOK_TARGET=<IP address>")
+$(error "You need to define your PlayBook's IP Address."\
+"Use: export PLAYBOOK_TARGET=<IP address>")
 endif
 
 ifeq ($(strip $(PLAYBOOK_PASSWORD)),)
-$(error "You need to define your PlayBook's password.  Use: read -esp 'Password: ' PLAYBOOK_PASSWORD  Then enter your password and type: export PLAYBOOK_PASSWORD")
+$(error You need to define your PlayBook's password.  Use: read -esp \
+'Password: ' PLAYBOOK_PASSWORD  Then enter your password and type: export \
+PLAYBOOK_PASSWORD)
 endif
 
 ifeq ($(strip $(PLAYBOOK_PIN)),)
-$(error "You need to define your PlayBook's PIN.  Use: export PLAYBOOK_PIN=<PIN>")
+$(error You need to define your PlayBook's PIN.  Use: export \
+PLAYBOOK_PIN=<PIN>)
 endif
 
 ifeq ($(strip $(KEYSTORE_PASSWORD)),)
-$(error "You need to define your Keystore password.  Use: read -esp 'Password: ' KEYSTORE_PASSWORD  Then enter your password and type: export KEYSTORE_PASSWORD")
+$(error You need to define your Keystore password.  Use: read -esp \
+'Password: ' KEYSTORE_PASSWORD  Then enter your password and type: export \
+KEYSTORE_PASSWORD)
 endif
 
 ifndef TOPDIR
@@ -38,7 +47,7 @@ export OBJSDIR		= $(TOPDIR)/Obj/$(BUILD_PLATFORM)/$(BUILD)
 endif
 
 ## Replace Template with your executable's name
-TARGET := Template
+export TARGET := Template
 OUTFILE = $(TARGETDIR)/$(TARGET)
 SOURCEDIR	= Source
 CONNECTIONPID = `cat connpid`
@@ -67,7 +76,8 @@ CONFIGURATION = Simulator-
 TARGET := $(TARGET)Simulator
 else
 CPPFLAGS = -Vgcc_ntoarmv7le
-INCPATH = -I$(QNX_TARGET)../target-override/usr/include -I$(QNX_TARGET)/usr/include
+INCPATH =	-I$(QNX_TARGET)../target-override/usr/include \
+			-I$(QNX_TARGET)/usr/include
 BUILD_PLATFORM = PlayBook_ARM
 CONFIGURATION = Device-
 TARGET := $(TARGET)
@@ -84,46 +94,64 @@ debug: CPPFLAGS += -g -ggdb -Wall
 debug: LFLAGS = -Wl,--no-keep-memory,-z,relro,-z,now
 debug: BUILD := Debug
 debug: CONFIGURATION := $(addsuffix Debug, $(CONFIGURATION))
-debug: $(TARGET)
+ifdef GDB
+debug: gdb
+else
+debug: $(TARGET) 
+endif
 
 # Set up the compiler's flags and libraries for release
 release: TARGET := $(TARGET)
 release: BUILD_TYPE := release
 release: BUILD := Release
 release: CONFIGURATION := $(addsuffix Release, $(CONFIGURATION))
+ifdef GDB
+release: gdb
+else
 release: $(TARGET)
+endif
 
 # Set up the compiler's flags and alternate libraries for profiling
 profile: TARGET := $(TARGET)P
 profile: BUILD_TYPE := profile
 profile: BUILD := Profile
 profile: CONFIGURATION := $(addsuffix Profile, $(CONFIGURATION))
+ifdef GDB
+profile: gdb
+else
 profile: $(TARGET)
+endif
 
 debugtoken:
 	@# If no debug token is found, create one
 	@if [ ! -e $(TARGETDIR)/$(TARGET)_tok.bar ]; then\
-		blackberry-debugtokenrequest -storepass $$KEYSTORE_PASSWORD -devicepin $(PLAYBOOK_PIN) $(TARGETDIR)/$(TARGET)_tok.bar;\
+		blackberry-debugtokenrequest -storepass $$KEYSTORE_PASSWORD \
+		-devicepin $(PLAYBOOK_PIN) $(TARGETDIR)/$(TARGET)_tok.bar;\
 	fi
 
 # Deploy will only install the debug token and application to the PlayBook
 deploy: debugtoken
-	@blackberry-deploy -package $(TARGETDIR)/$(TARGET).bar -installDebugToken $(TARGETDIR)/$(TARGET)_tok.bar $(PLAYBOOK_TARGET) -password $(PLAYBOOK_PASSWORD)
-	@export Installed=$$(echo $$(blackberry-nativepackager -installApp -device $(PLAYBOOK_TARGET) -password $(PLAYBOOK_PASSWORD) $(TARGETDIR)/$(TARGET).bar | grep result:: | sed 's/result:://'))
+	@blackberry-deploy -package $(TARGETDIR)/$(TARGET).bar \
+	-installDebugToken $(TARGETDIR)/$(TARGET)_tok.bar $(PLAYBOOK_TARGET) \
+	-password $$PLAYBOOK_PASSWORD
+	@export Installed=$$(echo $$(blackberry-nativepackager -installApp \
+	-device $(PLAYBOOK_TARGET) -password $$PLAYBOOK_PASSWORD \
+	$(TARGETDIR)/$(TARGET).bar | grep result:: | sed 's/result:://'))
 
 # Launch will cause the PlayBook to just launch the application
 # Launch starter is required because the second command will run in parallel
 # (I think) so the file won't be available
 launch_starter: deploy
-	@# If the program is running, don't attempt to launch, otherwise launch the program
+	@# If the program is running, don't attempt to launch, otherwise launch the
+	@# program.
 	@# If the program isn't running, launch it and save the PID
-	@export Launched=$$(echo $$(blackberry-deploy -isAppRunning -package $(TARGETDIR)/$(TARGET).bar $(PLAYBOOK_TARGET) -password $(PLAYBOOK_PASSWORD) | grep 'result::' | sed 's/result:://'));\
-	if [ $$Launched = true ]; then \
+	@export Launched=$$(echo $$(blackberry-deploy -isAppRunning -package $(TARGETDIR)/$(TARGET).bar $(PLAYBOOK_TARGET) -password $$PLAYBOOK_PASSWORD | grep 'result::' | sed 's/result:://'));\
+	if [[ $$Launched == "true" ]]; then \
 		echo Already running.  Attach your debugger to process $$(cat pid); \
 	else \
 		printf "\nLaunching $(TARGET)...\n\n";\
 		rm -rf pid;\
-		blackberry-deploy -debugNative -launchApp -device $(PLAYBOOK_TARGET) -password $(PLAYBOOK_PASSWORD) $(TARGETDIR)/$(TARGET).bar | grep result:: | sed 's/result:://' > pid;\
+		blackberry-deploy -debugNative -launchApp -device $(PLAYBOOK_TARGET) -password $$PLAYBOOK_PASSWORD $(TARGETDIR)/$(TARGET).bar | grep 'result::' | sed 's/result:://' > pid;\
 	fi
 
 connect:
@@ -133,13 +161,13 @@ connect:
 		echo Connect running;\
 	else\
 		echo Starting connection...;\
-		(java -Xmx512M -jar $(QNX_HOST)/usr/lib/Connect.jar $(PLAYBOOK_TARGET) -password $(PLAYBOOK_PASSWORD) -sshPublicKey $(SSHKEY) > /dev/null &);\
+		(java -Xmx512M -jar $(QNX_HOST)/usr/lib/Connect.jar $(PLAYBOOK_TARGET) -password $$PLAYBOOK_PASSWORD -sshPublicKey $(SSHKEY) > /dev/null &);\
 		export CONN=$$$$;export CONN=`expr $$CONN + 2`;echo $$CONN > connpid;\
 	fi
 
 launch: launch_starter connect
-	@export Launched=$$(echo $$(blackberry-deploy -isAppRunning -package $(TARGETDIR)/$(TARGET).bar $(PLAYBOOK_TARGET) -password $(PLAYBOOK_PASSWORD) | grep 'result::' | sed 's/result:://'));\
-	if [ $$Launched ]; then \
+	@export Launched=$$(echo $$(blackberry-deploy -isAppRunning -package $(TARGETDIR)/$(TARGET).bar $(PLAYBOOK_TARGET) -password $$PLAYBOOK_PASSWORD | grep 'result::' | sed 's/result:://'));\
+	if [[ $$Launched == "true" ]]; then \
 		printf "Process $$(cat pid) started\n\n";\
 	fi
 
@@ -164,6 +192,7 @@ gdb: launch
 
 ifneq ($(OBJSDIR),$(CURDIR))
 
+.PHONY: OBJSDIR TARGETDIR
 CPPFILES	:= $(foreach dir,$(SOURCEDIR),$(notdir $(wildcard $(dir)/*.cpp)))
 export OBJS		= $(CPPFILES:.cpp=.o)
 export VPATH	:= $(foreach dir, $(SOURCEDIR),$(CURDIR)/$(dir))
@@ -172,9 +201,9 @@ OBJSDIR:
 	@mkdir -p $(OBJSDIR)
 
 TARGETDIR:
-	mkdir -p $(TARGETDIR)
+	@mkdir -p $(TARGETDIR)
 
-$(TARGET): $(TARGETDIR) OBJSDIR debugtoken
+$(TARGET): TARGETDIR OBJSDIR debugtoken
 	@/usr/bin/time -f "%E" -o $(OBJSDIR)/compiletime $(MAKE) \
 	--no-print-directory -C $(OBJSDIR) -f $(TOPDIR)/Source/Makefile \
 	$(BUILD_TYPE)
@@ -211,7 +240,8 @@ $(TARGET): $(OBJS)
 
 %.o: %.cpp
 	@printf "Compiling: $< ..."
-	@$(CXX) -Wp,-MMD -Wp,MP -Wp,-MF,$*.d -c $(CPPFLAGS) -IHeaders $< -o $@ 2> *.cmsgs;\
+	@$(CXX) -Wp,-MMD -Wp,MP -Wp,-MF,$*.d -c $(CPPFLAGS) -IHeaders $< \
+	-o $@ 2> *.cmsgs;\
 	RETVAL=$$?;\
 	if [[ $$RETVAL == 0 ]]; then\
 		printf "[OK]\n";\
